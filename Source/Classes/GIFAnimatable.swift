@@ -83,21 +83,36 @@ extension GIFAnimatable {
   /// - parameter loopCount: Desired number of loops, <= 0 for infinite loop.
   /// - parameter completionHandler: Completion callback function
   public func animate(withGIFURL imageURL: URL, loopCount: Int = 0, completionHandler: (() -> Void)? = nil) {
-    let session = URLSession.shared
-
-    let task = session.dataTask(with: imageURL) { (data, response, error) in
-      switch (data, response, error) {
-      case (.none, _, let error?):
-        print("Error downloading gif:", error.localizedDescription, "at url:", imageURL.absoluteString)
-      case (let data?, _, _):
-        DispatchQueue.main.async {
-          self.animate(withGIFData: data, loopCount: loopCount, completionHandler: completionHandler)
+    
+    // We are going to check to see if the url is a file url or not
+    let isFileURL = imageURL.isFileURL
+    if isFileURL {
+        
+        // Load from file
+        guard
+            let data = try? Data(contentsOf: imageURL) else { return }
+        DispatchQueue.main.async { [weak self] in
+            guard let this = self else { return }
+            this.animate(withGIFData: data)
         }
-      default: ()
-      }
+        
+    } else {
+        
+        let session = URLSession.shared
+        let task = session.dataTask(with: imageURL) { (data, response, error) in
+            switch (data, response, error) {
+            case (.none, _, let error?):
+                print("Error downloading gif:", error.localizedDescription, "at url:", imageURL.absoluteString)
+            case (let data?, _, _):
+                DispatchQueue.main.async {
+                    self.animate(withGIFData: data, loopCount: loopCount, completionHandler: completionHandler)
+                }
+            default: ()
+            }
+        }
+        
+        task.resume()
     }
-
-    task.resume()
   }
 
   /// Prepares the animator instance for animation.
